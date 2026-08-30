@@ -181,6 +181,43 @@
     text-align:center;padding:40px 10px;color:var(--text-dim);
   }
   .summary-screen .big{font-size:22px;color:var(--text);font-weight:700;margin-bottom:10px;}
+  .overlay{
+    position:fixed;inset:0;background:var(--bg);z-index:60;
+    overflow-y:auto;
+  }
+  .overlay.hidden{display:none;}
+  .overlay-inner{max-width:520px;margin:0 auto;padding:14px 14px 40px;}
+  .chart-card{
+    background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:14px;margin-bottom:16px;
+  }
+  .chart-card .field-label{margin-bottom:10px;}
+  .chart-card svg{width:100%;height:auto;display:block;}
+  .weekly-avg-list{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+  .weekly-avg-row{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:8px 12px;font-size:13px;
+  }
+  table.endurance-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+  table.endurance-table th, table.endurance-table td{
+    padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);
+  }
+  table.endurance-table th{color:var(--text-dim);font-weight:600;}
+  table.endurance-table input{
+    width:100%;background:var(--card-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:6px;font-size:12px;text-align:center;
+  }
+  .danger-btn{
+    width:100%;background:transparent;color:var(--red);border:1px solid var(--red);
+    border-radius:14px;padding:14px;font-size:15px;font-weight:700;margin-top:16px;
+  }
+  .banner.warn{background:#3a2a10;color:#ffcf8a;border:1px solid #5c4620;cursor:pointer;}
+  .import-row{display:flex;gap:8px;margin-top:8px;}
+  .import-row button{
+    background:var(--accent);color:#04231b;border:0;border-radius:10px;
+    padding:10px 16px;font-size:14px;font-weight:700;flex:0 0 auto;
+  }
 </style>
 </head>
 <body>
@@ -189,11 +226,12 @@
 
   <main id="screen-today" class="screen"></main>
   <main id="screen-week" class="screen"></main>
-  <main id="screen-trend" class="screen">
-    <h2 class="screen-title">מגמה</h2>
-    <div class="placeholder-card">גרפים, נקודות Checkpoint וטבלת מבחן הסיבולת יתווספו בשלב 2.</div>
-  </main>
+  <main id="screen-trend" class="screen"></main>
   <main id="screen-settings" class="screen"></main>
+</div>
+
+<div id="bad-day-overlay" class="overlay hidden">
+  <div class="overlay-inner" id="bad-day-content"></div>
 </div>
 
 <div id="toast"></div>
@@ -229,6 +267,9 @@
     {maxDay:21, ceiling:"00:30"},
     {maxDay:75, ceiling:"00:00"}
   ];
+
+  var ENDURANCE_KEYS = ["baseline","day25","day50","day75"];
+  var ENDURANCE_LABELS = {baseline:"בסיס", day25:"יום 25", day50:"יום 50", day75:"יום 75"};
 
   var CHECK_META = {
     wake:     {points:10, label:"קימה"},
@@ -446,7 +487,6 @@
   }
 
   /* ===================== רינדור: מסך היום ===================== */
-  var minModeOn = false;
   var MIN_MODE_KEYS = ["reading","learning","quiet","water","sleep"];
 
   function renderToday(){
@@ -480,6 +520,16 @@
     var nextDisabled = dayNum >= maxDay;
 
     var html = "";
+
+    // באנר: תזכורת גיבוי אם עברו 7 ימים או יותר מהגיבוי האחרון (או שלא בוצע כלל)
+    if(dateISO === realToday){
+      var daysSinceBackup = data.lastBackup
+        ? Math.floor((Date.now() - new Date(data.lastBackup).getTime()) / 86400000)
+        : Infinity;
+      if(daysSinceBackup >= 7){
+        html += '<div class="banner warn" id="backup-banner-link">לא בוצע גיבוי מעל 7 ימים — חשוב לייצא נתונים בהגדרות</div>';
+      }
+    }
 
     // באנר: לא נבחרו ימי אימון
     if(noPlannedTrainingAtAll){
@@ -525,10 +575,6 @@
     html += '<div class="score-block"><div class="score-num" style="color:'+label.color+'">'+score+'</div>';
     html += '<div class="score-label" style="color:'+label.color+'">'+label.text+'</div>';
     html += '<div class="score-out">מתוך 100</div></div>';
-
-    if(minModeOn){
-      html += '<div class="min-note"><strong>יום גרוע — מינימום נדרש:</strong><br>3 עמודי קריאה · 30 דקות למידה · 10 דקות שקט · להשלים מים · לישון בהתאם לשלב<br><br>יום קשה לא הופך לשבוע קשה. אין restart ואין ענישה.</div>';
-    }
 
     html += '<div class="checklist">';
 
@@ -602,7 +648,7 @@
     html += '<div class="field-block"><div class="field-label">משפט אחד על היום</div>';
     html += '<textarea id="day-note" placeholder="איך היה היום...">'+escapeHtml(day.note||"")+'</textarea></div>';
 
-    html += '<button class="small-btn" id="bad-day-btn">'+(minModeOn?'חזרה לתצוגה מלאה':'יום גרוע')+'</button>';
+    html += '<button class="small-btn" id="bad-day-btn">יום גרוע</button>';
 
     root.innerHTML = html;
 
@@ -626,17 +672,18 @@
       renderToday();
     };
 
+    var backupLink = document.getElementById("backup-banner-link");
+    if(backupLink) backupLink.onclick = function(){
+      state.tab = "settings";
+      renderAll();
+    };
+
     root.querySelectorAll('.row[data-clickable="1"]').forEach(function(rowEl){
       rowEl.addEventListener("click", function(e){
         if(e.target && e.target.id === "weekend-wake-time") return;
         var key = rowEl.getAttribute("data-key");
         var current = !!day[key];
         var newVal = !current;
-
-        if((key === "training" || key === "cardio")){
-          var todayLocked = dayNum < realDayNum; // יום שהסתיים
-          // עריכת אימון/אירובי מותרת גם ליום שהסתיים - זה עדכון סימון בפועל, לא הזזת יום אימון.
-        }
         updateDay(dateISO, patchFor(key, newVal));
         renderToday();
       });
@@ -666,8 +713,7 @@
     var badDayBtn = document.getElementById("bad-day-btn");
     if(badDayBtn){
       badDayBtn.onclick = function(){
-        minModeOn = !minModeOn;
-        renderToday();
+        openBadDayOverlay(dateISO);
       };
     }
   }
@@ -681,6 +727,63 @@
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  /* ===================== מסך "יום גרוע" (7.5) ===================== */
+  var badDayDate = null;
+
+  function openBadDayOverlay(dateISO){
+    badDayDate = dateISO;
+    document.getElementById("bad-day-overlay").classList.remove("hidden");
+    renderBadDayOverlay();
+  }
+  function closeBadDayOverlay(){
+    document.getElementById("bad-day-overlay").classList.add("hidden");
+    badDayDate = null;
+  }
+
+  function renderBadDayOverlay(){
+    if(!badDayDate) return;
+    var dateISO = badDayDate;
+    var data = loadData();
+    var day = getDay(data, dateISO);
+
+    var html = "";
+    html += '<button class="small-btn" id="close-bad-day">‹ חזרה</button>';
+    html += '<h2 class="screen-title" style="margin-top:14px;">יום גרוע — מינימום נדרש</h2>';
+    html += '<div class="checklist">';
+
+    MIN_MODE_KEYS.forEach(function(key){
+      var meta = CHECK_META[key];
+      var checked = !!day[key];
+      var hint = "";
+      if(key === "sleep") hint = "תקרת הלילה: " + sleepCeiling(yesterdayOf(dateISO));
+      var rowClasses = "row" + (checked ? " checked" : "");
+      html += '<div class="'+rowClasses+'" data-key="'+key+'" data-clickable="1">';
+      html += '<div class="box">'+(checked?'✓':'')+'</div>';
+      html += '<div class="row-text"><div class="label">'+meta.label+'</div>';
+      if(hint) html += '<div class="hint">'+hint+'</div>';
+      html += '</div>';
+      html += '<div class="row-points">'+meta.points+'</div>';
+      html += '</div>';
+    });
+
+    html += '</div>';
+    html += '<p class="quote" style="margin-top:6px;">יום קשה לא הופך לשבוע קשה. אין restart ואין ענישה.</p>';
+
+    var root = document.getElementById("bad-day-content");
+    root.innerHTML = html;
+
+    document.getElementById("close-bad-day").onclick = closeBadDayOverlay;
+    root.querySelectorAll('.row[data-clickable="1"]').forEach(function(rowEl){
+      rowEl.addEventListener("click", function(){
+        var key = rowEl.getAttribute("data-key");
+        var current = !!day[key];
+        updateDay(dateISO, patchFor(key, !current));
+        renderBadDayOverlay();
+        renderToday();
+      });
     });
   }
 
@@ -810,19 +913,157 @@
     });
   }
 
-  /* ===================== רינדור: מסך הגדרות (שלב 1 - ייצוא בלבד) ===================== */
+  /* ===================== רינדור: מסך מגמה ===================== */
+  function buildLineChartSVG(points, opts){
+    var width = opts.width || 320, height = opts.height || 160, pad = opts.padding || 26;
+    var xMin = opts.xMin, xMax = opts.xMax, yMin = opts.yMin, yMax = opts.yMax;
+    var color = opts.color || "#2dd4a7";
+    function xPix(x){ return pad + (width-2*pad) * ((x-xMin)/((xMax-xMin)||1)); }
+    function yPix(y){ return height-pad - (height-2*pad) * ((y-yMin)/((yMax-yMin)||1)); }
+
+    var svg = '<svg viewBox="0 0 '+width+' '+height+'" preserveAspectRatio="xMidYMid meet">';
+    [yMin, (yMin+yMax)/2, yMax].forEach(function(gv){
+      var gy = yPix(gv);
+      svg += '<line x1="'+pad+'" y1="'+gy.toFixed(1)+'" x2="'+(width-pad)+'" y2="'+gy.toFixed(1)+'" stroke="#26313d" stroke-width="1"/>';
+      svg += '<text x="'+(pad-4)+'" y="'+(gy+3).toFixed(1)+'" font-size="9" fill="#8a97a5" text-anchor="end">'+Math.round(gv)+'</text>';
+    });
+    (opts.checkpoints||[]).forEach(function(cp){
+      var cx = xPix(cp.x);
+      svg += '<line x1="'+cx.toFixed(1)+'" y1="'+pad+'" x2="'+cx.toFixed(1)+'" y2="'+(height-pad)+'" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,3"/>';
+      svg += '<text x="'+cx.toFixed(1)+'" y="'+(pad-8)+'" font-size="9" fill="#f59e0b" text-anchor="middle">'+cp.label+'</text>';
+    });
+    if(points.length){
+      var d = points.map(function(p,i){ return (i===0?'M':'L')+xPix(p.x).toFixed(1)+','+yPix(p.y).toFixed(1); }).join(' ');
+      svg += '<path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2"/>';
+      points.forEach(function(p){
+        svg += '<circle cx="'+xPix(p.x).toFixed(1)+'" cy="'+yPix(p.y).toFixed(1)+'" r="2.5" fill="'+color+'"/>';
+      });
+    } else {
+      svg += '<text x="'+(width/2)+'" y="'+(height/2)+'" font-size="11" fill="#8a97a5" text-anchor="middle">אין עדיין נתונים</text>';
+    }
+    svg += '</svg>';
+    return svg;
+  }
+
+  function renderTrend(){
+    var root = document.getElementById("screen-trend");
+    var data = loadData();
+
+    var scorePoints = [];
+    for(var d=1; d<=TOTAL_DAYS; d++){
+      var dISO2 = dateFromDayNumber(d);
+      if(data.days[dISO2]){
+        var wk2 = getWeek(data, weekNumberForDay(d));
+        var dy2 = getDay(data, dISO2);
+        scorePoints.push({x:d, y:calcScore(dy2, wk2, dISO2)});
+      }
+    }
+    var checkpoints = [
+      {x:25, label:"יום 25"},
+      {x:50, label:"יום 50"},
+      {x:75, label:"יום 75"}
+    ];
+    var scoreSvg = buildLineChartSVG(scorePoints, {width:320,height:160,padding:26,xMin:1,xMax:TOTAL_DAYS,yMin:0,yMax:100,color:"#2dd4a7",checkpoints:checkpoints});
+
+    var weeklyAvgHtml = '<div class="weekly-avg-list">';
+    var weightPoints = [];
+    for(var w=1; w<=11; w++){
+      var dates = weekDatesForWeekNumber(w);
+      var sum = 0, count = 0;
+      dates.forEach(function(dISO){
+        if(data.days[dISO]){
+          var wk = getWeek(data, w);
+          var dy = getDay(data, dISO);
+          sum += calcScore(dy, wk, dISO);
+          count++;
+        }
+      });
+      var avg = count ? Math.round(sum/count) : null;
+      weeklyAvgHtml += '<div class="weekly-avg-row"><span>שבוע '+w+'</span><span>'+(avg!=null?avg:'—')+'</span></div>';
+      var weekRec = getWeek(data, w);
+      if(weekRec.weight != null && weekRec.weight !== "") weightPoints.push({x:w, y:parseFloat(weekRec.weight)});
+    }
+    weeklyAvgHtml += '</div>';
+
+    var weightSvg;
+    if(weightPoints.length){
+      var weights = weightPoints.map(function(p){return p.y;});
+      var wMin = Math.min.apply(null, weights) - 1;
+      var wMax = Math.max.apply(null, weights) + 1;
+      if(wMin === wMax){ wMin -= 1; wMax += 1; }
+      weightSvg = buildLineChartSVG(weightPoints, {width:320,height:140,padding:26,xMin:1,xMax:11,yMin:wMin,yMax:wMax,color:"#38bdf8",checkpoints:[]});
+    } else {
+      weightSvg = buildLineChartSVG([], {width:320,height:140,padding:26,xMin:1,xMax:11,yMin:0,yMax:1,color:"#38bdf8",checkpoints:[]});
+    }
+
+    var endurance = data.endurance || defaultData().endurance;
+    var enduranceHtml = '<table class="endurance-table"><thead><tr><th>מבחן</th><th>תאריך</th><th>מרחק</th><th>דופק</th><th>הרגשה 1-10</th></tr></thead><tbody>';
+    ENDURANCE_KEYS.forEach(function(key){
+      var rec = endurance[key] || {date:null,distance:null,hr:null,feeling:null};
+      enduranceHtml += '<tr>';
+      enduranceHtml += '<td>'+ENDURANCE_LABELS[key]+'</td>';
+      enduranceHtml += '<td><input type="date" data-ekey="'+key+'" data-field="date" value="'+(rec.date||"")+'"></td>';
+      enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="distance" value="'+(rec.distance!=null?rec.distance:"")+'" placeholder="ק&quot;מ"></td>';
+      enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="hr" value="'+(rec.hr!=null?rec.hr:"")+'" placeholder="דופק"></td>';
+      enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="feeling" value="'+(rec.feeling!=null?rec.feeling:"")+'" placeholder="1-10"></td>';
+      enduranceHtml += '</tr>';
+    });
+    enduranceHtml += '</tbody></table>';
+
+    var html = '<h2 class="screen-title">מגמה</h2>';
+    html += '<div class="chart-card"><div class="field-label">ציון יומי לאורך האתגר</div>'+scoreSvg+'</div>';
+    html += '<div class="field-block"><div class="field-label">ממוצע ציון שבועי</div>'+weeklyAvgHtml+'</div>';
+    html += '<div class="chart-card"><div class="field-label">משקל שבועי</div>'+weightSvg+'</div>';
+    html += '<div class="field-block"><div class="field-label">מבחן הסיבולת</div>'+enduranceHtml+'</div>';
+
+    root.innerHTML = html;
+
+    root.querySelectorAll(".endurance-table input").forEach(function(inputEl){
+      inputEl.addEventListener("change", function(){
+        var key = inputEl.getAttribute("data-ekey");
+        var field = inputEl.getAttribute("data-field");
+        var raw = inputEl.value;
+        var val;
+        if(field === "date"){
+          val = raw || null;
+        } else {
+          val = raw === "" ? null : (isNaN(parseFloat(raw)) ? raw : parseFloat(raw));
+        }
+        var d2 = loadData();
+        if(!d2.endurance) d2.endurance = defaultData().endurance;
+        if(!d2.endurance[key]) d2.endurance[key] = {date:null,distance:null,hr:null,feeling:null};
+        d2.endurance[key][field] = val;
+        saveData(d2);
+      });
+    });
+  }
+
+  /* ===================== רינדור: מסך הגדרות ===================== */
   function renderSettings(){
     var root = document.getElementById("screen-settings");
+    var data = loadData();
     var html = '<h2 class="screen-title">הגדרות</h2>';
     html += '<button class="export-btn" id="export-btn">ייצוא JSON (העתקה + הורדה)</button>';
-    html += '<div class="placeholder-card">ייבוא JSON, תזכורת גיבוי ואיפוס מלא יתווספו בשלב 2.</div>';
+
+    var backupText = data.lastBackup
+      ? ("גיבוי אחרון: " + formatHebrewDate(data.lastBackup.slice(0,10)))
+      : "עדיין לא בוצע גיבוי";
+    html += '<div class="placeholder-card">'+backupText+'</div>';
+
+    html += '<div class="field-block" style="margin-top:16px;"><div class="field-label">ייבוא JSON</div>';
+    html += '<textarea id="import-text" placeholder="הדביקו כאן JSON שיוצא בעבר..."></textarea>';
+    html += '<div class="import-row"><button id="import-btn">ייבוא</button></div>';
+    html += '</div>';
+
+    html += '<button class="danger-btn" id="reset-btn">איפוס מלא</button>';
+
     root.innerHTML = html;
 
     document.getElementById("export-btn").onclick = function(){
-      var data = loadData();
-      data.lastBackup = new Date().toISOString();
-      saveData(data);
-      var json = JSON.stringify(data, null, 2);
+      var d = loadData();
+      d.lastBackup = new Date().toISOString();
+      saveData(d);
+      var json = JSON.stringify(d, null, 2);
       try{ navigator.clipboard && navigator.clipboard.writeText(json); }catch(e){}
       try{
         var blob = new Blob([json], {type:"application/json"});
@@ -836,6 +1077,35 @@
         URL.revokeObjectURL(url);
       }catch(e){}
       showToast("הנתונים יוצאו והועתקו ללוח");
+      renderAll();
+    };
+
+    document.getElementById("import-btn").onclick = function(){
+      var text = document.getElementById("import-text").value.trim();
+      if(!text){ showToast("אין מה לייבא"); return; }
+      var parsed;
+      try{
+        parsed = JSON.parse(text);
+      }catch(e){
+        showToast("שגיאה בפענוח ה-JSON");
+        return;
+      }
+      if(!parsed || typeof parsed !== "object" || typeof parsed.days !== "object" || typeof parsed.weeks !== "object"){
+        showToast("קובץ לא תקין - חסרים שדות days/weeks");
+        return;
+      }
+      saveData(parsed);
+      showToast("הנתונים יובאו בהצלחה");
+      renderAll();
+    };
+
+    document.getElementById("reset-btn").onclick = function(){
+      if(confirm("פעולה זו תמחק את כל הנתונים לצמיתות ולא ניתן לשחזר אותה. להמשיך?")){
+        if(confirm("אישור סופי: למחוק את כל הנתונים כעת?")){
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        }
+      }
     };
   }
 
@@ -848,6 +1118,7 @@
     });
     renderToday();
     renderWeek();
+    renderTrend();
     renderSettings();
   }
 
@@ -873,7 +1144,7 @@
   }
 
   function runAcceptanceTests(){
-    console.group("KOBI75 - בדיקות קבלה (שלב 1)");
+    console.group("KOBI75 - בדיקות קבלה");
     var allPass = true;
 
     function full(over){
