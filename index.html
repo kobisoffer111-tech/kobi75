@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0f14">
+<title>KOBI 75</title>
+<style>
+  :root{
+    --bg:#0b0f14;
+    --card:#151b23;
+    --card-2:#1c2530;
+    --border:#26313d;
+    --text:#e9eef3;
+    --text-dim:#8a97a5;
+    --accent:#2dd4a7;
+    --accent-dim:#1d5c4d;
+    --red:#ef4444;
+    --orange:#f59e0b;
+    --blue:#38bdf8;
+    --green:#22c55e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    padding-bottom:76px;
+  }
+  #app{max-width:520px;margin:0 auto;padding:14px 14px 8px;}
+  .quote{
+    text-align:center;
+    color:var(--text-dim);
+    font-size:13px;
+    margin:0 0 12px;
+  }
+  header.day-header{margin-bottom:10px;}
+  .day-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .day-nav button{
+    background:var(--card);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:22px;
+    width:44px;height:44px;
+    border-radius:12px;
+  }
+  .day-nav button:disabled{opacity:.3;}
+  .day-title{text-align:center;flex:1;}
+  .day-title .big{font-size:19px;font-weight:700;}
+  .day-title .sub{font-size:13px;color:var(--text-dim);margin-top:2px;}
+  .progress-bar{
+    height:6px;border-radius:4px;background:var(--card-2);
+    margin-top:10px;overflow:hidden;
+  }
+  .progress-bar > div{height:100%;background:var(--accent);}
+  .banner{
+    padding:10px 14px;border-radius:12px;font-size:14px;margin-bottom:10px;
+    font-weight:600;
+  }
+  .banner.danger{background:#3a1414;color:#ff9b9b;border:1px solid #5c2020;}
+  .banner.info{background:#16232f;color:#9fd3f5;border:1px solid #234156;}
+  .score-block{
+    text-align:center;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .score-num{font-size:52px;font-weight:800;line-height:1;}
+  .score-label{font-size:15px;font-weight:700;margin-top:4px;}
+  .score-out{color:var(--text-dim);font-size:13px;margin-top:2px;}
+  .checklist{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  .row{
+    display:flex;align-items:center;gap:12px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    min-height:56px;
+    padding:10px 14px;
+  }
+  .row.checked{background:var(--accent-dim);border-color:var(--accent);}
+  .row.dim{opacity:.55;}
+  .row.highlight{outline:2px solid var(--orange);}
+  .row.disabled{pointer-events:none;}
+  .box{
+    width:28px;height:28px;flex:0 0 28px;
+    border-radius:8px;border:2px solid var(--text-dim);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;font-weight:900;
+  }
+  .row.checked .box{background:var(--accent);border-color:var(--accent);color:#04231b;}
+  .row-text{flex:1;}
+  .row-text .label{font-size:15px;font-weight:600;}
+  .row-text .hint{font-size:12px;color:var(--text-dim);margin-top:2px;}
+  .row-points{font-size:13px;color:var(--text-dim);}
+  .row.checked .row-points{color:#bff4e4;}
+  .weekend-time{
+    display:flex;align-items:center;gap:8px;margin-top:8px;
+  }
+  .weekend-time input[type=time]{
+    background:var(--card-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:6px 8px;font-size:14px;
+  }
+  textarea, input[type=text], input[type=number]{
+    width:100%;background:var(--card);border:1px solid var(--border);
+    color:var(--text);border-radius:12px;padding:12px;font-size:15px;
+    font-family:inherit;
+  }
+  textarea{min-height:70px;resize:vertical;}
+  .field-label{font-size:14px;color:var(--text-dim);margin:0 0 6px;font-weight:600;}
+  .field-block{margin-bottom:16px;}
+  .small-btn{
+    background:var(--card);border:1px solid var(--border);color:var(--text-dim);
+    border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;
+  }
+  .min-note{
+    background:var(--card-2);border:1px solid var(--border);border-radius:12px;
+    padding:12px;font-size:13px;color:var(--text-dim);margin-bottom:12px;line-height:1.6;
+  }
+  .miss-twice{font-size:13px;color:var(--orange);margin-bottom:10px;font-weight:600;}
+  nav#bottom-nav{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--card);border-top:1px solid var(--border);
+    display:flex;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  nav#bottom-nav button{
+    flex:1;background:transparent;border:0;color:var(--text-dim);
+    padding:12px 4px;font-size:12px;font-weight:600;
+  }
+  nav#bottom-nav button.active{color:var(--accent);}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .week-days{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .week-day-row{
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:10px 14px;min-height:48px;
+  }
+  .week-day-row .info{font-size:14px;}
+  .week-day-row .score{font-size:14px;font-weight:700;color:var(--text-dim);}
+  .week-day-row.chosen{border-color:var(--accent);}
+  .week-day-row.chosen .info{color:var(--accent);}
+  table.week-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;}
+  table.week-table th, table.week-table td{
+    padding:8px 6px;text-align:center;border-bottom:1px solid var(--border);
+  }
+  table.week-table th{color:var(--text-dim);font-weight:600;}
+  select.tefillin-select{
+    width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:12px;font-size:15px;
+  }
+  h2.screen-title{font-size:20px;margin:4px 0 14px;}
+  .export-btn{
+    width:100%;background:var(--accent);color:#04231b;border:0;border-radius:14px;
+    padding:16px;font-size:16px;font-weight:800;margin-bottom:10px;
+  }
+  .placeholder-card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:16px;color:var(--text-dim);font-size:14px;line-height:1.7;
+  }
+  #toast{
+    position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+    background:var(--card-2);border:1px solid var(--accent);color:var(--text);
+    padding:10px 16px;border-radius:12px;font-size:14px;
+    opacity:0;pointer-events:none;transition:opacity .25s;z-index:50;
+  }
+  #toast.show{opacity:1;}
+  .summary-screen{
+    text-align:center;padding:40px 10px;color:var(--text-dim);
+  }
+  .summary-screen .big{font-size:22px;color:var(--text);font-weight:700;margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <p class="quote">עקביות לפני שלמות. פספוס של פעולה אינו מאפס את האתגר.</p>
+
+  <main id="screen-today" class="screen"></main>
+  <main id="screen-week" class="screen"></main>
+  <main id="screen-trend" class="screen">
+    <h2 class="screen-title">מגמה</h2>
+    <div class="placeholder-card">גרפים, נקודות Checkpoint וטבלת מבחן הסיבולת יתווספו בשלב 2.</div>
+  </main>
+  <main id="screen-settings" class="screen"></main>
+</div>
+
+<div id="toast"></div>
+
+<nav id="bottom-nav">
+  <button data-tab="today">היום</button>
+  <button data-tab="week">השבוע</button>
+  <button data-tab="trend">מגמה</button>
+  <button data-tab="settings">הגדרות</button>
+</nav>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ===================== קבועים ===================== */
+  var CHALLENGE_START = "2026-08-30";
+  var TOTAL_DAYS = 75;
+  var WEEKEND_SLEEP_CEILING = "01:00";
+  var STORAGE_KEY = "kobi75";
+
+  var STAGES = [
+    {from:1,  to:7,  name:"התנעה"},
+    {from:8,  to:14, name:"ייצוב"},
+    {from:15, to:21, name:"עליית רמה"},
+    {from:22, to:50, name:"שגרה"},
+    {from:51, to:75, name:"קיבוע"}
+  ];
+
+  var STAGE_CEILINGS = [
+    {maxDay:7,  ceiling:"01:30"},
+    {maxDay:14, ceiling:"01:00"},
+    {maxDay:21, ceiling:"00:30"},
+    {maxDay:75, ceiling:"00:00"}
+  ];
+
+  var CHECK_META = {
+    wake:     {points:10, label:"קימה"},
+    lemon:    {points:5,  label:"מים עם לימון בבוקר"},
+    water:    {points:10, label:"3 ליטר מים"},
+    food:     {points:15, label:"יום אכילה מאוזן"},
+    reading:  {points:10, label:"קריאה - 3 עמודים ומעלה"},
+    learning: {points:15, label:"למידה - 30 דקות ומעלה"},
+    quiet:    {points:10, label:"10 דקות ללא מסכים"},
+    sleep:    {points:15, label:"נרדמתי בזמן אמש"},
+    training: {points:5,  label:"אימון"},
+    cardio:   {points:5,  label:"אירובי 15-20 דקות"}
+  };
+
+  /* ===================== פונקציות תאריך טהורות ===================== */
+  function parseISO(dateISO){
+    var parts = dateISO.split("-").map(Number);
+    return Date.UTC(parts[0], parts[1]-1, parts[2]);
+  }
+  function isoFromUTCms(ms){
+    var d = new Date(ms);
+    var y = d.getUTCFullYear();
+    var m = String(d.getUTCMonth()+1).padStart(2,"0");
+    var day = String(d.getUTCDate()).padStart(2,"0");
+    return y+"-"+m+"-"+day;
+  }
+  function dayNumber(dateISO){
+    var start = parseISO(CHALLENGE_START);
+    var cur = parseISO(dateISO);
+    return Math.floor((cur-start)/86400000)+1;
+  }
+  function dateFromDayNumber(n){
+    var start = parseISO(CHALLENGE_START);
+    return isoFromUTCms(start + (n-1)*86400000);
+  }
+  function weekdayOf(dateISO){
+    return new Date(parseISO(dateISO)).getUTCDay(); // 0=ראשון ... 6=שבת
+  }
+  function isWeekend(dateISO){
+    var wd = weekdayOf(dateISO);
+    return wd===5 || wd===6;
+  }
+  function weekNumberForDay(dayNum){
+    return Math.ceil(dayNum/7);
+  }
+  function weekDatesForWeekNumber(weekNum){
+    var startDay = (weekNum-1)*7 + 1;
+    var endDay = Math.min(weekNum*7, TOTAL_DAYS);
+    var dates = [];
+    for(var d=startDay; d<=endDay; d++) dates.push(dateFromDayNumber(d));
+    return dates;
+  }
+  function stageNameForDay(dayNum){
+    for(var i=0;i<STAGES.length;i++){
+      if(dayNum>=STAGES[i].from && dayNum<=STAGES[i].to) return STAGES[i].name;
+    }
+    return "";
+  }
+
+  /* ===================== תקרת שינה (פונקציה טהורה) ===================== */
+  function timeToMinutes(t){
+    var parts = t.split(":").map(Number);
+    return parts[0]*60+parts[1];
+  }
+  function laterTime(a,b){
+    return timeToMinutes(a) >= timeToMinutes(b) ? a : b;
+  }
+  function stageCeilingForDay(dayNum){
+    for(var i=0;i<STAGE_CEILINGS.length;i++){
+      if(dayNum<=STAGE_CEILINGS[i].maxDay) return STAGE_CEILINGS[i].ceiling;
+    }
+    return "00:00";
+  }
+  function sleepCeiling(dateISO){
+    var dayNum = dayNumber(dateISO);
+    var stageCeil = stageCeilingForDay(dayNum);
+    if(!isWeekend(dateISO)) return stageCeil;
+    return laterTime(stageCeil, WEEKEND_SLEEP_CEILING);
+  }
+
+  /* ===================== ניקוד (פונקציה טהורה) ===================== */
+  function calcScore(dayRecord, weekRecord, dateISO){
+    var d = dayRecord || {};
+    var w = weekRecord || {trainingDays:[]};
+    var score = 0;
+    if(d.wake) score += 10;
+    if(d.lemon) score += 5;
+    if(d.water) score += 10;
+    if(d.food) score += 15;
+    if(d.reading) score += 10;
+    if(d.learning) score += 15;
+    if(d.quiet) score += 10;
+    if(d.sleep) score += 15;
+
+    var trainingDays = w.trainingDays || [];
+    var isPlannedTrainingDay = trainingDays.indexOf(dateISO) !== -1;
+
+    if(trainingDays.length === 0 || !isPlannedTrainingDay){
+      score += 10;
+    } else {
+      if(d.training) score += 5;
+      if(d.cardio) score += 5;
+    }
+    return score;
+  }
+  function scoreLabel(score){
+    if(score>=90) return {text:"יום מצוין", color:"var(--green)"};
+    if(score>=80) return {text:"עמדת באתגר", color:"var(--blue)"};
+    if(score>=70) return {text:"יום חלקי", color:"var(--orange)"};
+    return {text:"יום שלא עמד בסטנדרט", color:"var(--red)"};
+  }
+
+  /* ===================== נתונים / localStorage ===================== */
+  function defaultDayRecord(){
+    return {wake:false,lemon:false,water:false,food:false,reading:false,
+      learning:false,quiet:false,sleep:false,training:false,cardio:false,
+      weekendWakeTime:null,note:""};
+  }
+  function defaultWeekRecord(){
+    return {trainingDays:[],tefillinDay:null,tefillinDone:false,weight:null,note:""};
+  }
+  function defaultData(){
+    return {
+      version:1,
+      days:{},
+      weeks:{},
+      endurance:{
+        baseline:{date:null,distance:null,hr:null,feeling:null},
+        day25:{date:null,distance:null,hr:null,feeling:null},
+        day50:{date:null,distance:null,hr:null,feeling:null},
+        day75:{date:null,distance:null,hr:null,feeling:null}
+      },
+      lastBackup:null
+    };
+  }
+  function loadData(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return defaultData();
+      var parsed = JSON.parse(raw);
+      if(!parsed || typeof parsed !== "object") return defaultData();
+      return parsed;
+    }catch(e){
+      return defaultData();
+    }
+  }
+  function saveData(data){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+  function getDay(data, dateISO){
+    return data.days[dateISO] ? Object.assign(defaultDayRecord(), data.days[dateISO]) : defaultDayRecord();
+  }
+  function getWeek(data, weekNum){
+    var key = String(weekNum);
+    return data.weeks[key] ? Object.assign(defaultWeekRecord(), data.weeks[key]) : defaultWeekRecord();
+  }
+  function updateDay(dateISO, patch){
+    var data = loadData();
+    var day = getDay(data, dateISO);
+    Object.assign(day, patch);
+    data.days[dateISO] = day;
+    saveData(data);
+  }
+  function updateWeek(weekNum, patch){
+    var data = loadData();
+    var key = String(weekNum);
+    var week = getWeek(data, weekNum);
+    Object.assign(week, patch);
+    data.weeks[key] = week;
+    saveData(data);
+  }
+
+  /* ===================== עזרי תאריך מקומי (שעון המכשיר) ===================== */
+  function todayISOLocal(){
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,"0");
+    var day = String(d.getDate()).padStart(2,"0");
+    return y+"-"+m+"-"+day;
+  }
+  function yesterdayOf(dateISO){
+    return isoFromUTCms(parseISO(dateISO) - 86400000);
+  }
+  function formatHebrewDate(dateISO){
+    var parts = dateISO.split("-");
+    return parts[2]+"."+parts[1]+"."+parts[0];
+  }
+
+  /* ===================== מצב אפליקציה ===================== */
+  var realToday = todayISOLocal();
+  var realDayNum = dayNumber(realToday);
+  var appOutOfRange = (realDayNum < 1) || (realDayNum > TOTAL_DAYS);
+
+  var state = {
+    tab: "today",
+    viewedDate: realToday
+  };
+
+  if(!appOutOfRange){
+    var curWeekNum = weekNumberForDay(realDayNum);
+    var curWeekRec = getWeek(loadData(), curWeekNum);
+    if(weekdayOf(realToday) === 0 && curWeekRec.trainingDays.length === 0){
+      state.tab = "week";
+    }
+  }
+
+  /* ===================== Toast ===================== */
+  var toastTimer = null;
+  function showToast(msg){
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 2200);
+  }
+
+  /* ===================== רינדור: מסך היום ===================== */
+  var minModeOn = false;
+  var MIN_MODE_KEYS = ["reading","learning","quiet","water","sleep"];
+
+  function renderToday(){
+    var root = document.getElementById("screen-today");
+
+    if(appOutOfRange){
+      var msg = realDayNum < 1
+        ? "האתגר טרם התחיל. יום 1 יתחיל ב-" + formatHebrewDate(CHALLENGE_START)
+        : "האתגר הסתיים ביום 75 (" + formatHebrewDate(dateFromDayNumber(TOTAL_DAYS)) + "). כל הכבוד על ההשלמה.";
+      root.innerHTML =
+        '<div class="summary-screen"><div class="big">KOBI 75</div><div>'+msg+'</div></div>';
+      return;
+    }
+
+    var dateISO = state.viewedDate;
+    var dayNum = dayNumber(dateISO);
+    var weekNum = weekNumberForDay(dayNum);
+    var data = loadData();
+    var day = getDay(data, dateISO);
+    var week = getWeek(data, weekNum);
+    var score = calcScore(day, week, dateISO);
+    var label = scoreLabel(score);
+    var weekend = isWeekend(dateISO);
+    var trainingDays = week.trainingDays || [];
+    var isPlannedTrainingDay = trainingDays.indexOf(dateISO) !== -1;
+    var noPlannedTrainingAtAll = trainingDays.length === 0;
+
+    var minDay = 1;
+    var maxDay = Math.min(TOTAL_DAYS, realDayNum);
+    var prevDisabled = dayNum <= minDay;
+    var nextDisabled = dayNum >= maxDay;
+
+    var html = "";
+
+    // באנר: לא נבחרו ימי אימון
+    if(noPlannedTrainingAtAll){
+      html += '<div class="banner danger">לא נבחרו ימי אימון לשבוע הזה</div>';
+    }
+
+    // באנר: אתמול לא הושלם (רק כשצופים בהיום האמיתי)
+    if(dateISO === realToday){
+      var yISO = yesterdayOf(dateISO);
+      var yDayNum = dayNumber(yISO);
+      if(yDayNum >= 1){
+        var yWeekNum = weekNumberForDay(yDayNum);
+        var yDay = getDay(data, yISO);
+        var yWeek = getWeek(data, yWeekNum);
+        var yScore = calcScore(yDay, yWeek, yISO);
+        if(yScore < 100){
+          html += '<div class="banner info" id="yesterday-link" style="cursor:pointer;">אתמול לא הושלם — לחצו לעריכה</div>';
+        }
+      }
+    }
+
+    // Never miss twice - אם אתמול הציון היה מתחת ל-70
+    if(dateISO === realToday){
+      var yISO2 = yesterdayOf(dateISO);
+      if(dayNumber(yISO2) >= 1){
+        var yWeekNum2 = weekNumberForDay(dayNumber(yISO2));
+        var yScore2 = calcScore(getDay(data, yISO2), getWeek(data, yWeekNum2), yISO2);
+        if(yScore2 < 70){
+          html += '<div class="miss-twice">Never miss twice. ההרגל שפוספס אתמול מקבל עדיפות היום.</div>';
+        }
+      }
+    }
+
+    html += '<header class="day-header"><div class="day-nav">';
+    html += '<button id="prev-day" '+(prevDisabled?'disabled':'')+'>‹</button>';
+    html += '<div class="day-title"><div class="big">יום '+dayNum+' מתוך '+TOTAL_DAYS+'</div>';
+    html += '<div class="sub">'+formatHebrewDate(dateISO)+' · '+stageNameForDay(dayNum)+'</div></div>';
+    html += '<button id="next-day" '+(nextDisabled?'disabled':'')+'>›</button>';
+    html += '</div>';
+    html += '<div class="progress-bar"><div style="width:'+((dayNum/TOTAL_DAYS)*100)+'%"></div></div>';
+    html += '</header>';
+
+    html += '<div class="score-block"><div class="score-num" style="color:'+label.color+'">'+score+'</div>';
+    html += '<div class="score-label" style="color:'+label.color+'">'+label.text+'</div>';
+    html += '<div class="score-out">מתוך 100</div></div>';
+
+    if(minModeOn){
+      html += '<div class="min-note"><strong>יום גרוע — מינימום נדרש:</strong><br>3 עמודי קריאה · 30 דקות למידה · 10 דקות שקט · להשלים מים · לישון בהתאם לשלב<br><br>יום קשה לא הופך לשבוע קשה. אין restart ואין ענישה.</div>';
+    }
+
+    html += '<div class="checklist">';
+
+    var order = ["wake","lemon","water","food","reading","learning","quiet","sleep","training","cardio"];
+
+    // הדגשת שינה בראש הרשימה בבוקר אם לא סומנה (05:00-12:00, רק בהיום האמיתי)
+    var highlightSleep = false;
+    if(dateISO === realToday){
+      var now = new Date();
+      var hour = now.getHours();
+      if(hour >= 5 && hour < 12 && !day.sleep) highlightSleep = true;
+    }
+    if(highlightSleep){
+      order = ["sleep"].concat(order.filter(function(k){return k!=="sleep";}));
+    }
+
+    order.forEach(function(key){
+      var meta = CHECK_META[key];
+      var checked = !!day[key];
+      var dimmed = false;
+      var disabledRow = false;
+      var label2 = meta.label;
+      var hint = "";
+
+      if(key === "wake"){
+        if(weekend){
+          label2 = "יצאתי מהמיטה תוך 5 דקות מהשעה שקבעתי";
+          if(!day.weekendWakeTime) hint = "יש לקבוע שעת קימה מראש בערב הקודם";
+        } else {
+          label2 = "06:30, מחוץ למיטה עד 06:35";
+        }
+      }
+      if(key === "sleep"){
+        var ySleepISO = yesterdayOf(dateISO);
+        hint = "תקרת הלילה: " + sleepCeiling(ySleepISO);
+      }
+      if(key === "training" || key === "cardio"){
+        if(noPlannedTrainingAtAll){
+          dimmed = true;
+          disabledRow = true;
+          hint = "לא מתוכנן היום";
+        } else if(!isPlannedTrainingDay){
+          dimmed = true;
+          disabledRow = true;
+          hint = "לא מתוכנן היום";
+        }
+      }
+
+      var rowClasses = "row";
+      if(checked) rowClasses += " checked";
+      if(dimmed) rowClasses += " dim";
+      if(disabledRow) rowClasses += " disabled";
+      if(highlightSleep && key==="sleep") rowClasses += " highlight";
+
+      html += '<div class="'+rowClasses+'" data-key="'+key+'" '+(disabledRow?'':'data-clickable="1"')+'>';
+      html += '<div class="box">'+(checked?'✓':'')+'</div>';
+      html += '<div class="row-text"><div class="label">'+label2+'</div>';
+      if(hint) html += '<div class="hint">'+hint+'</div>';
+      html += '</div>';
+      html += '<div class="row-points">'+meta.points+'</div>';
+      html += '</div>';
+
+      if(key === "wake" && weekend){
+        html += '<div class="weekend-time"><label class="hint">שעת קימה מתוכננת:</label>';
+        html += '<input type="time" id="weekend-wake-time" value="'+(day.weekendWakeTime||"")+'"></div>';
+      }
+    });
+
+    html += '</div>';
+
+    html += '<div class="field-block"><div class="field-label">משפט אחד על היום</div>';
+    html += '<textarea id="day-note" placeholder="איך היה היום...">'+escapeHtml(day.note||"")+'</textarea></div>';
+
+    html += '<button class="small-btn" id="bad-day-btn">'+(minModeOn?'חזרה לתצוגה מלאה':'יום גרוע')+'</button>';
+
+    root.innerHTML = html;
+
+    // אירועים
+    var prevBtn = document.getElementById("prev-day");
+    var nextBtn = document.getElementById("next-day");
+    if(prevBtn) prevBtn.onclick = function(){
+      if(prevDisabled) return;
+      state.viewedDate = dateFromDayNumber(dayNum-1);
+      renderToday();
+    };
+    if(nextBtn) nextBtn.onclick = function(){
+      if(nextDisabled) return;
+      state.viewedDate = dateFromDayNumber(dayNum+1);
+      renderToday();
+    };
+
+    var yLink = document.getElementById("yesterday-link");
+    if(yLink) yLink.onclick = function(){
+      state.viewedDate = yesterdayOf(dateISO);
+      renderToday();
+    };
+
+    root.querySelectorAll('.row[data-clickable="1"]').forEach(function(rowEl){
+      rowEl.addEventListener("click", function(e){
+        if(e.target && e.target.id === "weekend-wake-time") return;
+        var key = rowEl.getAttribute("data-key");
+        var current = !!day[key];
+        var newVal = !current;
+
+        if((key === "training" || key === "cardio")){
+          var todayLocked = dayNum < realDayNum; // יום שהסתיים
+          // עריכת אימון/אירובי מותרת גם ליום שהסתיים - זה עדכון סימון בפועל, לא הזזת יום אימון.
+        }
+        updateDay(dateISO, patchFor(key, newVal));
+        renderToday();
+      });
+    });
+
+    var wakeTimeInput = document.getElementById("weekend-wake-time");
+    if(wakeTimeInput){
+      wakeTimeInput.addEventListener("change", function(){
+        var val = wakeTimeInput.value || null;
+        if(dayNum < realDayNum){
+          showToast("לא ניתן לערוך שעת קימה מתוכננת ליום שהסתיים");
+          wakeTimeInput.value = day.weekendWakeTime || "";
+          return;
+        }
+        updateDay(dateISO, {weekendWakeTime: val});
+        renderToday();
+      });
+    }
+
+    var noteEl = document.getElementById("day-note");
+    if(noteEl){
+      noteEl.addEventListener("input", function(){
+        updateDay(dateISO, {note: noteEl.value});
+      });
+    }
+
+    var badDayBtn = document.getElementById("bad-day-btn");
+    if(badDayBtn){
+      badDayBtn.onclick = function(){
+        minModeOn = !minModeOn;
+        renderToday();
+      };
+    }
+  }
+
+  function patchFor(key, val){
+    var p = {};
+    p[key] = val;
+    return p;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  /* ===================== רינדור: מסך השבוע ===================== */
+  function renderWeek(){
+    var root = document.getElementById("screen-week");
+
+    if(appOutOfRange){
+      root.innerHTML = '<h2 class="screen-title">השבוע</h2><div class="placeholder-card">האתגר אינו פעיל כעת.</div>';
+      return;
+    }
+
+    var dayNum = dayNumber(state.viewedDate) || realDayNum;
+    var weekNum = weekNumberForDay(Math.min(Math.max(dayNum,1),TOTAL_DAYS));
+    var data = loadData();
+    var week = getWeek(data, weekNum);
+    var dates = weekDatesForWeekNumber(weekNum);
+    var trainingDays = week.trainingDays || [];
+
+    var weekEnded = dates[dates.length-1] < realToday; // כל התאריכים בעבר
+
+    var html = "";
+    html += '<h2 class="screen-title">שבוע '+weekNum+'</h2>';
+
+    html += '<div class="field-block"><div class="field-label">בחירת שני ימי אימון לשבוע</div>';
+    html += '<div class="week-days">';
+    dates.forEach(function(dISO){
+      var dN = dayNumber(dISO);
+      var chosen = trainingDays.indexOf(dISO) !== -1;
+      var dayData = getDay(data, dISO);
+      var wk = getWeek(data, weekNumberForDay(dN));
+      var sc = calcScore(dayData, wk, dISO);
+      var wd = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"][weekdayOf(dISO)];
+      var locked = dISO < realToday; // היום כבר הסתיים
+      html += '<div class="week-day-row '+(chosen?'chosen':'')+'" data-date="'+dISO+'" data-locked="'+(locked?'1':'0')+'">';
+      html += '<div class="info">יום '+wd+' · '+formatHebrewDate(dISO)+(locked?' 🔒':'')+'</div>';
+      html += '<div class="score">'+sc+'</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="field-block"><div class="field-label">יום תפילין</div>';
+    html += '<select class="tefillin-select" id="tefillin-day"><option value="">בחר יום</option>';
+    dates.forEach(function(dISO){
+      var wd = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"][weekdayOf(dISO)];
+      html += '<option value="'+dISO+'" '+(week.tefillinDay===dISO?'selected':'')+'>'+wd+' · '+formatHebrewDate(dISO)+'</option>';
+    });
+    html += '</select>';
+    html += '<div class="row" id="tefillin-done-row" style="margin-top:8px;'+(week.tefillinDone?'':'')+'"><div class="box">'+(week.tefillinDone?'✓':'')+'</div><div class="row-text"><div class="label">בוצע</div></div></div>';
+    html += '</div>';
+
+    html += '<div class="field-block"><div class="field-label">משקל שבועי (ק"ג)</div>';
+    html += '<input type="number" step="0.1" id="week-weight" value="'+(week.weight!=null?week.weight:"")+'" placeholder="לדוגמה 78.5">';
+    html += '</div>';
+
+    html += '<table class="week-table"><thead><tr><th>יום</th><th>תאריך</th><th>ציון</th></tr></thead><tbody>';
+    var sum = 0, count = 0;
+    dates.forEach(function(dISO){
+      var dN = dayNumber(dISO);
+      var dayData = getDay(data, dISO);
+      var wk = getWeek(data, weekNumberForDay(dN));
+      var sc = calcScore(dayData, wk, dISO);
+      var wd = ["א'","ב'","ג'","ד'","ה'","ו'","ש'"][weekdayOf(dISO)];
+      sum += sc; count++;
+      html += '<tr><td>'+wd+'</td><td>'+formatHebrewDate(dISO)+'</td><td>'+sc+'</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<p class="field-label">ממוצע שבועי: '+(count?Math.round(sum/count):0)+'</p>';
+
+    html += '<div class="field-block"><div class="field-label">הערה שבועית</div>';
+    html += '<textarea id="week-note" placeholder="הערה על השבוע...">'+escapeHtml(week.note||"")+'</textarea></div>';
+
+    root.innerHTML = html;
+
+    root.querySelectorAll(".week-day-row").forEach(function(rowEl){
+      rowEl.addEventListener("click", function(){
+        var dISO = rowEl.getAttribute("data-date");
+        var locked = rowEl.getAttribute("data-locked") === "1";
+        var chosenNow = trainingDays.indexOf(dISO) !== -1;
+
+        if(locked && !chosenNow){
+          showToast("היום הזה כבר הסתיים, לא ניתן להזיז אליו אימון רטרואקטיבית");
+          return;
+        }
+        if(locked && chosenNow){
+          showToast("היום הזה כבר הסתיים, לא ניתן להסיר ממנו אימון רטרואקטיבית");
+          return;
+        }
+
+        var newTrainingDays = trainingDays.slice();
+        if(chosenNow){
+          newTrainingDays = newTrainingDays.filter(function(x){return x!==dISO;});
+        } else {
+          if(newTrainingDays.length >= 2){
+            showToast("ניתן לבחור שני ימי אימון בלבד");
+            return;
+          }
+          newTrainingDays.push(dISO);
+        }
+        updateWeek(weekNum, {trainingDays: newTrainingDays});
+        renderWeek();
+        if(state.tab==="today") renderToday();
+      });
+    });
+
+    var tefillinSelect = document.getElementById("tefillin-day");
+    if(tefillinSelect) tefillinSelect.addEventListener("change", function(){
+      updateWeek(weekNum, {tefillinDay: tefillinSelect.value || null});
+    });
+
+    var tefillinDoneRow = document.getElementById("tefillin-done-row");
+    if(tefillinDoneRow) tefillinDoneRow.addEventListener("click", function(){
+      var newVal = !week.tefillinDone;
+      updateWeek(weekNum, {tefillinDone: newVal});
+      renderWeek();
+    });
+
+    var weightInput = document.getElementById("week-weight");
+    if(weightInput) weightInput.addEventListener("change", function(){
+      var v = weightInput.value === "" ? null : parseFloat(weightInput.value);
+      updateWeek(weekNum, {weight: v});
+    });
+
+    var noteEl = document.getElementById("week-note");
+    if(noteEl) noteEl.addEventListener("input", function(){
+      updateWeek(weekNum, {note: noteEl.value});
+    });
+  }
+
+  /* ===================== רינדור: מסך הגדרות (שלב 1 - ייצוא בלבד) ===================== */
+  function renderSettings(){
+    var root = document.getElementById("screen-settings");
+    var html = '<h2 class="screen-title">הגדרות</h2>';
+    html += '<button class="export-btn" id="export-btn">ייצוא JSON (העתקה + הורדה)</button>';
+    html += '<div class="placeholder-card">ייבוא JSON, תזכורת גיבוי ואיפוס מלא יתווספו בשלב 2.</div>';
+    root.innerHTML = html;
+
+    document.getElementById("export-btn").onclick = function(){
+      var data = loadData();
+      data.lastBackup = new Date().toISOString();
+      saveData(data);
+      var json = JSON.stringify(data, null, 2);
+      try{ navigator.clipboard && navigator.clipboard.writeText(json); }catch(e){}
+      try{
+        var blob = new Blob([json], {type:"application/json"});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "kobi75-backup-" + todayISOLocal() + ".json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }catch(e){}
+      showToast("הנתונים יוצאו והועתקו ללוח");
+    };
+  }
+
+  /* ===================== ניווט טאבים ===================== */
+  function renderAll(){
+    document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
+    document.getElementById("screen-"+state.tab).classList.add("active");
+    document.querySelectorAll("#bottom-nav button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-tab")===state.tab);
+    });
+    renderToday();
+    renderWeek();
+    renderSettings();
+  }
+
+  document.querySelectorAll("#bottom-nav button").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      state.tab = btn.getAttribute("data-tab");
+      renderAll();
+    });
+  });
+
+  renderAll();
+
+  /* ===================== בדיקות קבלה (מצב פיתוח בלבד) ===================== */
+  var DEV_MODE = (location.protocol === "file:") ||
+                 (location.hostname === "localhost") ||
+                 (location.hostname === "127.0.0.1") ||
+                 (location.search.indexOf("dev=1") !== -1);
+
+  function assertEqual(actual, expected, label){
+    var pass = JSON.stringify(actual) === JSON.stringify(expected);
+    console.log((pass?"✅ ":"❌ ") + label + " | expected=" + JSON.stringify(expected) + " actual=" + JSON.stringify(actual));
+    return pass;
+  }
+
+  function runAcceptanceTests(){
+    console.group("KOBI75 - בדיקות קבלה (שלב 1)");
+    var allPass = true;
+
+    function full(over){
+      return Object.assign({wake:true,lemon:true,water:true,food:true,reading:true,
+        learning:true,quiet:true,sleep:true,training:false,cardio:false}, over||{});
+    }
+
+    // --- ניקוד ---
+    allPass &= assertEqual(
+      calcScore(full({training:true,cardio:true}), {trainingDays:["2026-08-30","2026-09-01"]}, "2026-08-30"),
+      100, "ניקוד #1 - הכל מסומן, יום אימון מתוכנן ובוצע");
+
+    allPass &= assertEqual(
+      calcScore(full({training:false,cardio:false}), {trainingDays:["2026-08-30","2026-09-01"]}, "2026-08-30"),
+      90, "ניקוד #2 - יום אימון מתוכנן אך לא בוצע");
+
+    allPass &= assertEqual(
+      calcScore(full({training:false,cardio:false}), {trainingDays:["2026-09-01","2026-09-02"]}, "2026-08-31"),
+      100, "ניקוד #3 - יום ללא אימון מתוכנן, כל 8 היומיים מסומנים");
+
+    allPass &= assertEqual(
+      calcScore(full({reading:false,quiet:false}), {trainingDays:["2026-09-01","2026-09-02"]}, "2026-08-31"),
+      80, "ניקוד #4 - יום ללא אימון מתוכנן, חסרים קריאה ושקט");
+
+    allPass &= assertEqual(
+      calcScore(full({sleep:false}), {trainingDays:["2026-09-01","2026-09-02"]}, "2026-08-31"),
+      85, "ניקוד #5 - יום ללא אימון מתוכנן, חסרה שינה בלבד");
+
+    allPass &= assertEqual(
+      calcScore(full(), {trainingDays:[]}, "2026-08-30"),
+      100, "ניקוד #6 - שבוע ללא trainingDays, כל 8 היומיים מסומנים");
+
+    // --- תקרת שינה ---
+    allPass &= assertEqual(sleepCeiling("2026-09-04"), "01:30", "תקרת שינה #7 - יום 6, שישי");
+    allPass &= assertEqual(sleepCeiling("2026-09-10"), "01:00", "תקרת שינה #8 - יום 12, חמישי");
+    allPass &= assertEqual(sleepCeiling("2026-09-16"), "00:30", "תקרת שינה #9 - יום 18, רביעי");
+    allPass &= assertEqual(sleepCeiling("2026-09-19"), "01:00", "תקרת שינה #10 - יום 21, שבת");
+    allPass &= assertEqual(sleepCeiling("2026-10-01"), "00:00", "תקרת שינה #11 - יום 33, חמישי");
+    allPass &= assertEqual(sleepCeiling("2026-10-03"), "01:00", "תקרת שינה #12 - יום 35, שבת");
+
+    // --- מספור ימים ---
+    allPass &= assertEqual(dayNumber("2026-08-30"), 1, "מספור ימים #13");
+    allPass &= assertEqual(dayNumber("2026-09-23"), 25, "מספור ימים #14");
+    allPass &= assertEqual(dayNumber("2026-10-18"), 50, "מספור ימים #15");
+    allPass &= assertEqual(dayNumber("2026-11-12"), 75, "מספור ימים #16");
+
+    // --- שמירה (מפתח בדיקה נפרד, לא נוגע בנתונים האמיתיים) ---
+    (function(){
+      var TEST_KEY = "__kobi75_test__";
+      var sample = {version:1, days:{"2026-08-30":{wake:true}}, weeks:{}, endurance:{}, lastBackup:null};
+      localStorage.setItem(TEST_KEY, JSON.stringify(sample));
+      var reloaded = JSON.parse(localStorage.getItem(TEST_KEY));
+      allPass &= assertEqual(reloaded.days["2026-08-30"].wake, true, "שמירה #17 - localStorage שומר ונטען בחזרה");
+      localStorage.removeItem(TEST_KEY);
+    })();
+
+    // --- ייצוא/ייבוא: בדיקת round-trip של סריאליזציה (הבסיס שעליו נבנה ייבוא ב-שלב 2) ---
+    (function(){
+      var sample = defaultData();
+      sample.days["2026-08-30"] = full({training:true,cardio:true});
+      sample.weeks["1"] = {trainingDays:["2026-08-30"], tefillinDay:null, tefillinDone:false, weight:78.5, note:"טוב"};
+      var json = JSON.stringify(sample);
+      var restored = JSON.parse(json);
+      allPass &= assertEqual(restored, sample, "ייצוא/ייבוא #18 - round-trip של JSON זהה למקור");
+    })();
+
+    console.log(allPass ? "✅ כל הבדיקות עברו" : "❌ יש בדיקות שנכשלו, ראה למעלה");
+    console.groupEnd();
+  }
+
+  if(DEV_MODE){
+    runAcceptanceTests();
+  }
+
+})();
+</script>
+</body>
+</html>
