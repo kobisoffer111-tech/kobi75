@@ -1131,6 +1131,17 @@
 
   renderAll();
 
+  /* ===================== רישום Service Worker (לתמיכה אמינה באופליין כשהאפליקציה מותקנת) ===================== */
+  /* דורש אחסון מאובטח (https, או localhost) - ב-file:// ובכל מקרה אחר הרישום פשוט לא קורה. */
+  if("serviceWorker" in navigator){
+    var swOkContext = location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if(swOkContext){
+      window.addEventListener("load", function(){
+        navigator.serviceWorker.register("./sw.js").catch(function(){});
+      });
+    }
+  }
+
   /* ===================== בדיקות קבלה (מצב פיתוח בלבד) ===================== */
   var DEV_MODE = (location.protocol === "file:") ||
                  (location.hostname === "localhost") ||
