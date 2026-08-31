@@ -162,10 +162,6 @@
     padding:8px 6px;text-align:center;border-bottom:1px solid var(--border);
   }
   table.week-table th{color:var(--text-dim);font-weight:600;}
-  select.tefillin-select{
-    width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);
-    border-radius:12px;padding:12px;font-size:15px;
-  }
   h2.screen-title{font-size:20px;margin:4px 0 14px;}
   .export-btn{
     width:100%;background:var(--accent);color:#04231b;border:0;border-radius:14px;
@@ -398,11 +394,11 @@
       weekendWakeTime:null,note:""};
   }
   function defaultWeekRecord(){
-    return {trainingDays:[],tefillinDay:null,tefillinDone:false,weight:null,note:""};
+    return {trainingDays:[],tefillin:{},weight:null,note:""};
   }
   function defaultData(){
     return {
-      version:2,
+      version:3,
       days:{},
       weeks:{},
       endurance:{
@@ -414,19 +410,37 @@
       lastBackup:null
     };
   }
-  // הופך רשומות ישנות (גרסה 1, שבהן false פירושו "עדיין לא סומן") ל-tri-state.
-  // מחזיר true אם באמת שינה משהו, כדי ש-loadData ישמור רק כשצריך.
+  // מהגר נתונים ישנים בהדרגה. מחזיר true אם באמת שינה משהו, כדי ש-loadData ישמור רק כשצריך.
   function migrateData(data){
-    if(data.version >= 2) return false;
-    var days = data.days || {};
-    Object.keys(days).forEach(function(dateISO){
-      var rec = days[dateISO];
-      DAILY_KEYS.forEach(function(k){
-        if(rec[k] === false) rec[k] = null;
+    var changed = false;
+    if(!data.version || data.version < 2){
+      // גרסה 1: false בפריטים היומיים פירושו "עדיין לא סומן". הופך ל-tri-state (null=לא סומן).
+      var days = data.days || {};
+      Object.keys(days).forEach(function(dateISO){
+        var rec = days[dateISO];
+        DAILY_KEYS.forEach(function(k){
+          if(rec[k] === false) rec[k] = null;
+        });
       });
-    });
-    data.version = 2;
-    return true;
+      data.version = 2;
+      changed = true;
+    }
+    if(data.version < 3){
+      // גרסה 2: תפילין היה יום יחיד + דגל בוצע יחיד לשבוע. הופך למפת תאריך->tri-state.
+      var weeks = data.weeks || {};
+      Object.keys(weeks).forEach(function(wk){
+        var week = weeks[wk];
+        if(!week.tefillin) week.tefillin = {};
+        if(week.tefillinDay && week.tefillinDone){
+          week.tefillin[week.tefillinDay] = true;
+        }
+        delete week.tefillinDay;
+        delete week.tefillinDone;
+      });
+      data.version = 3;
+      changed = true;
+    }
+    return changed;
   }
   function loadData(){
     try{
@@ -857,15 +871,21 @@
     });
     html += '</div></div>';
 
-    html += '<div class="field-block"><div class="field-label">יום תפילין</div>';
-    html += '<select class="tefillin-select" id="tefillin-day"><option value="">בחר יום</option>';
+    html += '<div class="field-block"><div class="field-label">תפילין (יעד שבועי - לא נכנס לניקוד היומי)</div>';
+    html += '<div class="checklist">';
+    var tefillinMap = week.tefillin || {};
     dates.forEach(function(dISO){
       var wd = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"][weekdayOf(dISO)];
-      html += '<option value="'+dISO+'" '+(week.tefillinDay===dISO?'selected':'')+'>'+wd+' · '+formatHebrewDate(dISO)+'</option>';
+      var val = tefillinMap[dISO] !== undefined ? tefillinMap[dISO] : null;
+      var checked = val === true;
+      var missed = val === false;
+      var rowClasses = "row" + (checked?" checked":"") + (missed?" missed":"");
+      html += '<div class="'+rowClasses+'" data-tefillin-date="'+dISO+'">';
+      html += '<div class="box">'+(checked?'✓':(missed?'✕':''))+'</div>';
+      html += '<div class="row-text"><div class="label">יום '+wd+' · '+formatHebrewDate(dISO)+'</div></div>';
+      html += '</div>';
     });
-    html += '</select>';
-    html += '<div class="row" id="tefillin-done-row" style="margin-top:8px;'+(week.tefillinDone?'':'')+'"><div class="box">'+(week.tefillinDone?'✓':'')+'</div><div class="row-text"><div class="label">בוצע</div></div></div>';
-    html += '</div>';
+    html += '</div></div>';
 
     html += '<div class="field-block"><div class="field-label">משקל שבועי (ק"ג)</div>';
     html += '<input type="number" step="0.1" id="week-weight" value="'+(week.weight!=null?week.weight:"")+'" placeholder="לדוגמה 78.5">';
@@ -917,16 +937,17 @@
       });
     });
 
-    var tefillinSelect = document.getElementById("tefillin-day");
-    if(tefillinSelect) tefillinSelect.addEventListener("change", function(){
-      updateWeek(weekNum, {tefillinDay: tefillinSelect.value || null});
-    });
-
-    var tefillinDoneRow = document.getElementById("tefillin-done-row");
-    if(tefillinDoneRow) tefillinDoneRow.addEventListener("click", function(){
-      var newVal = !week.tefillinDone;
-      updateWeek(weekNum, {tefillinDone: newVal});
-      renderWeek();
+    root.querySelectorAll("[data-tefillin-date]").forEach(function(rowEl){
+      rowEl.addEventListener("click", function(){
+        var dISO = rowEl.getAttribute("data-tefillin-date");
+        var current = tefillinMap[dISO] !== undefined ? tefillinMap[dISO] : null;
+        var next = cycleState(current);
+        var newTefillin = Object.assign({}, tefillinMap);
+        if(next === null) delete newTefillin[dISO];
+        else newTefillin[dISO] = next;
+        updateWeek(weekNum, {tefillin: newTefillin});
+        renderWeek();
+      });
     });
 
     var weightInput = document.getElementById("week-weight");
@@ -1259,7 +1280,7 @@
     (function(){
       var sample = defaultData();
       sample.days["2026-08-30"] = full({training:true,cardio:true});
-      sample.weeks["1"] = {trainingDays:["2026-08-30"], tefillinDay:null, tefillinDone:false, weight:78.5, note:"טוב"};
+      sample.weeks["1"] = {trainingDays:["2026-08-30"], tefillin:{"2026-08-30":true}, weight:78.5, note:"טוב"};
       var json = JSON.stringify(sample);
       var restored = JSON.parse(json);
       allPass &= assertEqual(restored, sample, "ייצוא/ייבוא #18 - round-trip של JSON זהה למקור");
