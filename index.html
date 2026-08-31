@@ -90,6 +90,7 @@
     padding:10px 14px;
   }
   .row.checked{background:var(--accent-dim);border-color:var(--accent);}
+  .row.missed{background:#3a1414;border-color:var(--red);}
   .row.dim{opacity:.55;}
   .row.highlight{outline:2px solid var(--orange);}
   .row.disabled{pointer-events:none;}
@@ -100,11 +101,13 @@
     font-size:18px;font-weight:900;
   }
   .row.checked .box{background:var(--accent);border-color:var(--accent);color:#04231b;}
+  .row.missed .box{background:var(--red);border-color:var(--red);color:#2a0a0a;}
   .row-text{flex:1;}
   .row-text .label{font-size:15px;font-weight:600;}
   .row-text .hint{font-size:12px;color:var(--text-dim);margin-top:2px;}
   .row-points{font-size:13px;color:var(--text-dim);}
   .row.checked .row-points{color:#bff4e4;}
+  .row.missed .row-points{color:#ffb3b3;}
   .weekend-time{
     display:flex;align-items:center;gap:8px;margin-top:8px;
   }
@@ -134,6 +137,8 @@
     background:var(--card);border-top:1px solid var(--border);
     display:flex;
     padding-bottom:env(safe-area-inset-bottom);
+    will-change:transform;
+    z-index:40;
   }
   nav#bottom-nav button{
     flex:1;background:transparent;border:0;color:var(--text-dim);
@@ -199,9 +204,10 @@
     background:var(--card);border:1px solid var(--border);border-radius:10px;
     padding:8px 12px;font-size:13px;
   }
-  table.endurance-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
+  .endurance-wrap{overflow-x:auto;}
+  table.endurance-table{width:100%;min-width:340px;table-layout:fixed;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
   table.endurance-table th, table.endurance-table td{
-    padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);
+    width:20%;padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);
   }
   table.endurance-table th{color:var(--text-dim);font-weight:600;}
   table.endurance-table input{
@@ -270,6 +276,8 @@
 
   var ENDURANCE_KEYS = ["baseline","day25","day50","day75"];
   var ENDURANCE_LABELS = {baseline:"בסיס", day25:"יום 25", day50:"יום 50", day75:"יום 75"};
+
+  var DAILY_KEYS = ["wake","lemon","water","food","reading","learning","quiet","sleep","training","cardio"];
 
   var CHECK_META = {
     wake:     {points:10, label:"קימה"},
@@ -383,9 +391,10 @@
   }
 
   /* ===================== נתונים / localStorage ===================== */
+  /* כל פריט יומי הוא tri-state: null (עדיין לא סומן) | true (בוצע) | false (סומן מפורשות כלא בוצע) */
   function defaultDayRecord(){
-    return {wake:false,lemon:false,water:false,food:false,reading:false,
-      learning:false,quiet:false,sleep:false,training:false,cardio:false,
+    return {wake:null,lemon:null,water:null,food:null,reading:null,
+      learning:null,quiet:null,sleep:null,training:null,cardio:null,
       weekendWakeTime:null,note:""};
   }
   function defaultWeekRecord(){
@@ -393,7 +402,7 @@
   }
   function defaultData(){
     return {
-      version:1,
+      version:2,
       days:{},
       weeks:{},
       endurance:{
@@ -405,12 +414,26 @@
       lastBackup:null
     };
   }
+  // הופך רשומות ישנות (גרסה 1, שבהן false פירושו "עדיין לא סומן") ל-tri-state.
+  // מחזיר true אם באמת שינה משהו, כדי ש-loadData ישמור רק כשצריך.
+  function migrateData(data){
+    if(data.version >= 2) return false;
+    var days = data.days || {};
+    Object.keys(days).forEach(function(dateISO){
+      var rec = days[dateISO];
+      DAILY_KEYS.forEach(function(k){
+        if(rec[k] === false) rec[k] = null;
+      });
+    });
+    data.version = 2;
+    return true;
+  }
   function loadData(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
-      if(!raw) return defaultData();
-      var parsed = JSON.parse(raw);
-      if(!parsed || typeof parsed !== "object") return defaultData();
+      var parsed = raw ? JSON.parse(raw) : defaultData();
+      if(!parsed || typeof parsed !== "object") parsed = defaultData();
+      if(migrateData(parsed)) saveData(parsed);
       return parsed;
     }catch(e){
       return defaultData();
@@ -593,7 +616,8 @@
 
     order.forEach(function(key){
       var meta = CHECK_META[key];
-      var checked = !!day[key];
+      var checked = day[key] === true;
+      var missed = day[key] === false;
       var dimmed = false;
       var disabledRow = false;
       var label2 = meta.label;
@@ -625,12 +649,13 @@
 
       var rowClasses = "row";
       if(checked) rowClasses += " checked";
+      if(missed) rowClasses += " missed";
       if(dimmed) rowClasses += " dim";
       if(disabledRow) rowClasses += " disabled";
       if(highlightSleep && key==="sleep") rowClasses += " highlight";
 
       html += '<div class="'+rowClasses+'" data-key="'+key+'" '+(disabledRow?'':'data-clickable="1"')+'>';
-      html += '<div class="box">'+(checked?'✓':'')+'</div>';
+      html += '<div class="box">'+(checked?'✓':(missed?'✕':''))+'</div>';
       html += '<div class="row-text"><div class="label">'+label2+'</div>';
       if(hint) html += '<div class="hint">'+hint+'</div>';
       html += '</div>';
@@ -682,8 +707,7 @@
       rowEl.addEventListener("click", function(e){
         if(e.target && e.target.id === "weekend-wake-time") return;
         var key = rowEl.getAttribute("data-key");
-        var current = !!day[key];
-        var newVal = !current;
+        var newVal = cycleState(day[key]);
         updateDay(dateISO, patchFor(key, newVal));
         renderToday();
       });
@@ -724,6 +748,13 @@
     return p;
   }
 
+  // מעגל תלת-מצבי: לא סומן (null) -> בוצע (true) -> לא בוצע (false) -> לא סומן ...
+  function cycleState(current){
+    if(current === true) return false;
+    if(current === false) return null;
+    return true;
+  }
+
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
@@ -756,12 +787,13 @@
 
     MIN_MODE_KEYS.forEach(function(key){
       var meta = CHECK_META[key];
-      var checked = !!day[key];
+      var checked = day[key] === true;
+      var missed = day[key] === false;
       var hint = "";
       if(key === "sleep") hint = "תקרת הלילה: " + sleepCeiling(yesterdayOf(dateISO));
-      var rowClasses = "row" + (checked ? " checked" : "");
+      var rowClasses = "row" + (checked ? " checked" : "") + (missed ? " missed" : "");
       html += '<div class="'+rowClasses+'" data-key="'+key+'" data-clickable="1">';
-      html += '<div class="box">'+(checked?'✓':'')+'</div>';
+      html += '<div class="box">'+(checked?'✓':(missed?'✕':''))+'</div>';
       html += '<div class="row-text"><div class="label">'+meta.label+'</div>';
       if(hint) html += '<div class="hint">'+hint+'</div>';
       html += '</div>';
@@ -779,8 +811,8 @@
     root.querySelectorAll('.row[data-clickable="1"]').forEach(function(rowEl){
       rowEl.addEventListener("click", function(){
         var key = rowEl.getAttribute("data-key");
-        var current = !!day[key];
-        updateDay(dateISO, patchFor(key, !current));
+        var newVal = cycleState(day[key]);
+        updateDay(dateISO, patchFor(key, newVal));
         renderBadDayOverlay();
         renderToday();
       });
@@ -808,7 +840,7 @@
     var html = "";
     html += '<h2 class="screen-title">שבוע '+weekNum+'</h2>';
 
-    html += '<div class="field-block"><div class="field-label">בחירת שני ימי אימון לשבוע</div>';
+    html += '<div class="field-block"><div class="field-label">בחירת ימי אימון לשבוע (כמה שרוצים)</div>';
     html += '<div class="week-days">';
     dates.forEach(function(dISO){
       var dN = dayNumber(dISO);
@@ -877,10 +909,6 @@
         if(chosenNow){
           newTrainingDays = newTrainingDays.filter(function(x){return x!==dISO;});
         } else {
-          if(newTrainingDays.length >= 2){
-            showToast("ניתן לבחור שני ימי אימון בלבד");
-            return;
-          }
           newTrainingDays.push(dISO);
         }
         updateWeek(weekNum, {trainingDays: newTrainingDays});
@@ -1002,7 +1030,7 @@
       var rec = endurance[key] || {date:null,distance:null,hr:null,feeling:null};
       enduranceHtml += '<tr>';
       enduranceHtml += '<td>'+ENDURANCE_LABELS[key]+'</td>';
-      enduranceHtml += '<td><input type="date" data-ekey="'+key+'" data-field="date" value="'+(rec.date||"")+'"></td>';
+      enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="date" value="'+(rec.date||"")+'" placeholder="30.08"></td>';
       enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="distance" value="'+(rec.distance!=null?rec.distance:"")+'" placeholder="ק&quot;מ"></td>';
       enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="hr" value="'+(rec.hr!=null?rec.hr:"")+'" placeholder="דופק"></td>';
       enduranceHtml += '<td><input type="text" data-ekey="'+key+'" data-field="feeling" value="'+(rec.feeling!=null?rec.feeling:"")+'" placeholder="1-10"></td>';
@@ -1014,7 +1042,7 @@
     html += '<div class="chart-card"><div class="field-label">ציון יומי לאורך האתגר</div>'+scoreSvg+'</div>';
     html += '<div class="field-block"><div class="field-label">ממוצע ציון שבועי</div>'+weeklyAvgHtml+'</div>';
     html += '<div class="chart-card"><div class="field-label">משקל שבועי</div>'+weightSvg+'</div>';
-    html += '<div class="field-block"><div class="field-label">מבחן הסיבולת</div>'+enduranceHtml+'</div>';
+    html += '<div class="field-block"><div class="field-label">מבחן הסיבולת</div><div class="endurance-wrap">'+enduranceHtml+'</div></div>';
 
     root.innerHTML = html;
 
@@ -1130,6 +1158,21 @@
   });
 
   renderAll();
+
+  /* ===================== קיבוע התפריט התחתון כשהמקלדת נפתחת (באג ידוע ב-iOS Safari) ===================== */
+  /* position:fixed לא תמיד עוקב אחרי visualViewport כשהמקלדת עולה/יורדת, מה שגורם לתפריט "לזוז" או "להתנתק". */
+  (function(){
+    var nav = document.getElementById("bottom-nav");
+    if(!nav || !window.visualViewport) return;
+    var vv = window.visualViewport;
+    function reposition(){
+      var offset = window.innerHeight - (vv.height + vv.offsetTop);
+      nav.style.transform = offset > 0.5 ? "translateY(-" + offset + "px)" : "";
+    }
+    vv.addEventListener("resize", reposition);
+    vv.addEventListener("scroll", reposition);
+    reposition();
+  })();
 
   /* ===================== רישום Service Worker (לתמיכה אמינה באופליין כשהאפליקציה מותקנת) ===================== */
   /* דורש אחסון מאובטח (https, או localhost) - ב-file:// ובכל מקרה אחר הרישום פשוט לא קורה. */
