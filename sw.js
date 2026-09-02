@@ -4,7 +4,7 @@
 // חשוב: בכל פעם שמעדכנים את index.html יש להעלות את המספר ב-CACHE_NAME למטה
 // (למשל v1 -> v2). אחרת מכשירים שכבר התקינו את האפליקציה ימשיכו לקבל את
 // הגרסה הישנה מהמטמון ולא יראו את השינוי, גם אחרי רענון.
-const CACHE_NAME = "kobi75-cache-v3";
+const CACHE_NAME = "kobi75-cache-v4";
 const APP_SHELL = ["./", "./index.html"];
 
 self.addEventListener("install", function(event){

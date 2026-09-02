@@ -385,6 +385,22 @@
     if(score>=70) return {text:"יום חלקי", color:"var(--orange)"};
     return {text:"יום שלא עמד בסטנדרט", color:"var(--red)"};
   }
+  // "הושלם" = כל פריט רלוונטי סומן במפורש (✓ או ✕), לא משנה מה הציון בפועל.
+  // אימון/אירובי נחשבים רלוונטיים רק ביום אימון מתוכנן (אחרת הם ממילא נעולים ומקבלים ניקוד אוטומטי).
+  function isDayFullyMarked(dayRecord, weekRecord, dateISO){
+    var d = dayRecord || {};
+    var alwaysKeys = ["wake","lemon","water","food","reading","learning","quiet","sleep"];
+    for(var i=0;i<alwaysKeys.length;i++){
+      if(d[alwaysKeys[i]] === null || d[alwaysKeys[i]] === undefined) return false;
+    }
+    var trainingDays = (weekRecord && weekRecord.trainingDays) || [];
+    var isPlannedTrainingDay = trainingDays.indexOf(dateISO) !== -1;
+    if(isPlannedTrainingDay){
+      if(d.training === null || d.training === undefined) return false;
+      if(d.cardio === null || d.cardio === undefined) return false;
+    }
+    return true;
+  }
 
   /* ===================== נתונים / localStorage ===================== */
   /* כל פריט יומי הוא tri-state: null (עדיין לא סומן) | true (בוצע) | false (סומן מפורשות כלא בוצע) */
@@ -573,7 +589,7 @@
       html += '<div class="banner danger">לא נבחרו ימי אימון לשבוע הזה</div>';
     }
 
-    // באנר: אתמול לא הושלם (רק כשצופים בהיום האמיתי)
+    // באנר: אתמול לא הושלם - כלומר יש פריט שעדיין לא סומן בכלל (לא ✓ ולא ✕), לא משנה מה הציון
     if(dateISO === realToday){
       var yISO = yesterdayOf(dateISO);
       var yDayNum = dayNumber(yISO);
@@ -581,8 +597,7 @@
         var yWeekNum = weekNumberForDay(yDayNum);
         var yDay = getDay(data, yISO);
         var yWeek = getWeek(data, yWeekNum);
-        var yScore = calcScore(yDay, yWeek, yISO);
-        if(yScore < 100){
+        if(!isDayFullyMarked(yDay, yWeek, yISO)){
           html += '<div class="banner info" id="yesterday-link" style="cursor:pointer;">אתמול לא הושלם — לחצו לעריכה</div>';
         }
       }
